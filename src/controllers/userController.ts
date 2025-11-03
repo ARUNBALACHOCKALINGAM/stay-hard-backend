@@ -31,28 +31,10 @@ export const userController = {
 
       await user.save();
 
-      // Auto-create default challenge (21 days, Soft) and link to user if none exists
+      // Auto-create default challenge (idempotent)
       try {
-        const existing = await Challenge.findOne({ userId: user._id, status: 'active' });
-        if (!existing && !user.currentChallengeId) {
-          const now = new Date();
-          const challengeDays = 21;
-          const expectedEndDate = new Date(now);
-          expectedEndDate.setDate(now.getDate() + challengeDays);
-
-          const challenge = await Challenge.create({
-            userId: user._id,
-            challengeId: uuidv4(),
-            challengeDays,
-            challengeLevel: 'Soft',
-            startDate: now,
-            expectedEndDate,
-            status: 'active',
-          });
-
-          user.currentChallengeId = challenge._id.toString();
-          await user.save();
-        }
+        const { createDefaultChallengeForUser } = await import('../services/challengeService');
+        await createDefaultChallengeForUser(user._id);
       } catch (innerErr) {
         console.warn('Failed to create default challenge for new user:', innerErr);
         // Proceed without failing user creation

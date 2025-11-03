@@ -218,6 +218,8 @@ export const challengeController = {
       const expectedEndDate = new Date(now);
       expectedEndDate.setDate(now.getDate() + challengeDays);
 
+      const tasks = (await import('../utils/defaultTasks')).defaultCustomTasksForLevel('Soft');
+
       const challenge = await Challenge.create({
         userId,
         challengeId: uuidv4(),
@@ -226,6 +228,7 @@ export const challengeController = {
         startDate: now,
         expectedEndDate,
         status: 'active',
+        tasks,
       } as Partial<IChallenge>);
 
       // Link to user

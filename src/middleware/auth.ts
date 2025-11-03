@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as admin from 'firebase-admin';
 import User from '../models/Users';
-import Challenge from '../models/Challenge';
-import { v4 as uuidv4 } from 'uuid';
+import { createDefaultChallengeForUser } from '../services/challengeService';
 
 // Extend Express Request type to include user
 declare global {
@@ -47,25 +46,9 @@ export const authenticateUser = async (
           lastLogin: new Date()
         });
 
-        // Auto-create default 21-day Soft challenge for new users
+        // Auto-create default challenge for new users (idempotent)
         try {
-          const now = new Date();
-          const challengeDays = 21;
-          const expectedEndDate = new Date(now);
-          expectedEndDate.setDate(now.getDate() + challengeDays);
-
-          const challenge = await Challenge.create({
-            userId: user._id,
-            challengeId: uuidv4(),
-            challengeDays,
-            challengeLevel: 'Soft',
-            startDate: now,
-            expectedEndDate,
-            status: 'active',
-          });
-
-          user.currentChallengeId = challenge._id.toString();
-          await user.save();
+          await createDefaultChallengeForUser(user._id);
         } catch (err) {
           console.warn('Failed to create default challenge for user:', err);
         }
