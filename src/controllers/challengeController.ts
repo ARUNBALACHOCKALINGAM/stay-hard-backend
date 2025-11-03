@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Challenge, { IChallenge } from '../models/Challenge';
 import User from '../models/Users';
 import { v4 as uuidv4 } from 'uuid';
+import { generateTasksForLevel } from '../utils/defaultTasks';
 
 /**
  * Challenge Controller - Handles challenge-related operations
@@ -120,12 +121,7 @@ export const challengeController = {
       };
 
       // Update custom tasks if provided
-      if (challengeLevel === 'Custom' && req.body.customTasks) {
-        updateData.customTasks = req.body.customTasks;
-      } else if (challengeLevel !== 'Custom') {
-        // Remove custom tasks if moving away from Custom level
-        updateData.customTasks = [];
-      }
+     generateTasksForLevel(challengeLevel) ;
 
       const updatedChallenge = await Challenge.findByIdAndUpdate(
         req.params.id,
@@ -218,7 +214,6 @@ export const challengeController = {
       const expectedEndDate = new Date(now);
       expectedEndDate.setDate(now.getDate() + challengeDays);
 
-      const tasks = (await import('../utils/defaultTasks')).defaultCustomTasksForLevel('Soft');
 
       const challenge = await Challenge.create({
         userId,
@@ -228,7 +223,6 @@ export const challengeController = {
         startDate: now,
         expectedEndDate,
         status: 'active',
-        tasks,
       } as Partial<IChallenge>);
 
       // Link to user

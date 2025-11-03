@@ -1,7 +1,6 @@
 import Challenge from '../models/Challenge';
 import User from '../models/Users';
 import { v4 as uuidv4 } from 'uuid';
-import { defaultCustomTasksForLevel } from '../utils/defaultTasks';
 
 /**
  * Create a default challenge (21 days, Soft) for a user if they don't
@@ -25,7 +24,6 @@ export async function createDefaultChallengeForUser(userId: any) {
   const expectedEndDate = new Date(now);
   expectedEndDate.setDate(now.getDate() + challengeDays);
 
-  const customTasks = defaultCustomTasksForLevel('Soft');
 
   const challenge = await Challenge.create({
     userId,
@@ -35,7 +33,6 @@ export async function createDefaultChallengeForUser(userId: any) {
     startDate: now,
     expectedEndDate,
     status: 'active',
-    customTasks,
   });
 
   // Link to user

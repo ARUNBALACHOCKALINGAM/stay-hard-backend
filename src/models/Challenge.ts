@@ -15,7 +15,7 @@ export interface IChallenge extends Document {
   startDate: Date;
   expectedEndDate: Date;
   status: 'active' | 'completed' | 'failed' | 'abandoned';
-  customTasks?: ICustomTask[];
+  tasks?: ICustomTask[];
   totalDays: number;
   completedDays: number;
   currentStreak: number;
@@ -28,23 +28,6 @@ export interface IChallenge extends Document {
   updatedAt: Date;
 }
 
-const CustomTaskSchema = new Schema(
-  {
-    id: {
-      type: String,
-      required: true,
-    },
-    text: {
-      type: String,
-      required: true,
-    },
-    order: {
-      type: Number,
-      required: true,
-    },
-  },
-  { _id: false }
-);
 
 const ChallengeSchema: Schema = new Schema(
   {
@@ -83,10 +66,6 @@ const ChallengeSchema: Schema = new Schema(
       required: true,
       enum: ['active', 'completed', 'failed', 'abandoned'],
       default: 'active',
-    },
-    customTasks: {
-      type: [CustomTaskSchema],
-      default: [],
     },
     totalDays: {
       type: Number,

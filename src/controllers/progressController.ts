@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import DailyProgress, { ITask } from '../models/DailyProgress';
 import Challenge from '../models/Challenge';
+import { generateTasksForLevel } from '../utils/defaultTasks';
 
 /**
  * Progress Controller - Handles daily task tracking and updates
@@ -52,28 +53,10 @@ export const progressController = {
         // Initialize tasks based on challenge level
         let tasks: ITask[] = [];
         
-        if (challenge.challengeLevel === 'Custom' && challenge.customTasks) {
-          // Use custom tasks
-          tasks = challenge.customTasks.map(task => ({
-            id: task.id,
-            text: task.text,
-            completed: false
-          }));
-        } else {
-          // Use default tasks based on difficulty
-          const defaultTasks = challenge.challengeLevel === 'Hard' 
-            ? [
-                { id: 'workout', text: 'Work out', completed: false },
-                { id: 'coldShower', text: 'Take a cold shower', completed: false },
-                { id: 'reading', text: 'Read for 30 minutes', completed: false }
-              ]
-            : [
-                { id: 'workout', text: 'Work out', completed: false },
-                { id: 'reading', text: 'Read for 15 minutes', completed: false }
-              ];
+    
           
-          tasks = defaultTasks;
-        }
+          tasks = generateTasksForLevel(challenge.challengeLevel);
+        
 
         // Create new progress entry
         progress = await DailyProgress.create({
