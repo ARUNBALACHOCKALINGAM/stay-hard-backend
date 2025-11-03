@@ -1,0 +1,55 @@
+{
+  "name": "stay-hard",
+  "version": "1.0.0",
+  "description": "A simple habit tracking app",
+  "homepage": "https://github.com/ARUNBALACHOCKALINGAM/stay-hard#readme",
+  "bugs": {
+    "url": "https://github.com/ARUNBALACHOCKALINGAM/stay-hard/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ARUNBALACHOCKALINGAM/stay-hard.git"
+  },
+  "license": "ISC",
+  "author": "A-run",
+  "type": "commonjs",
+  "main": "src/app.ts",
+  "scripts": {
+    "dev": "nodemon --watch src --ext ts,js --exec ts-node src/app.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint src --ext .ts"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "src"
+    ],
+    "ext": "js,ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/express": "^5.0.5",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.9.2",
+    "eslint": "^9.39.0",
+    "globals": "^16.5.0",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2"
+  },
+  "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/jsonwebtoken": "^9.0.10",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "firebase-admin": "^13.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.2",
+    "multer": "^1.4.4",
+    "multer-gridfs-storage": "^5.0.2",
+    "uuid": "^13.0.0"
+  }
+}
