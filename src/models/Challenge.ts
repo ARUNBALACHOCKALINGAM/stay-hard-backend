@@ -1,10 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export interface ICustomTask {
-  id: string;
-  text: string;
-  order: number;
-}
+
 
 export interface IChallenge extends Document {
   _id: mongoose.Types.ObjectId;
@@ -15,7 +11,6 @@ export interface IChallenge extends Document {
   startDate: Date;
   expectedEndDate: Date;
   status: 'active' | 'completed' | 'failed' | 'abandoned';
-  tasks?: ICustomTask[];
   totalDays: number;
   completedDays: number;
   currentStreak: number;

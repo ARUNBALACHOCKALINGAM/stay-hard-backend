@@ -19,9 +19,11 @@ export const authenticateUser = async (
   next: NextFunction
 ) => {
   try {
+    console.log('🔐 Auth middleware called for:', req.method, req.path);
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ No token provided or invalid format');
       return res.status(401).json({ message: 'No token provided' });
     }
 
@@ -29,11 +31,19 @@ export const authenticateUser = async (
     const token = authHeader.split('Bearer ')[1];
 
     try {
+
+      console.log('Verifying token:', token);
       // Verify the Firebase token
       const decodedToken = await admin.auth().verifyIdToken(token);
+
+
+      console.log('Decoded token:', decodedToken);
       
       // Find or create user in our database
       let user = await User.findOne({ firebaseUid: decodedToken.uid });
+
+
+      console.log('Found user:', user);
       
       if (!user) {
         // Create new user if they don't exist
@@ -49,6 +59,8 @@ export const authenticateUser = async (
         // Auto-create default challenge for new users (idempotent)
         try {
           await createDefaultChallengeForUser(user._id);
+
+          console.log('Default challenge created for user:', user._id);
         } catch (err) {
           console.warn('Failed to create default challenge for user:', err);
         }
@@ -57,12 +69,14 @@ export const authenticateUser = async (
         await User.findByIdAndUpdate(user._id, {
           lastLogin: new Date()
         });
+        console.log('Updated last login for user:', user._id);
       }
 
       // Attach user and token to request object
       req.user = user;
       req.token = token;
       
+      console.log('✅ Auth successful, proceeding to controller');
       next();
     } catch (error) {
       return res.status(401).json({ message: 'Invalid token' });

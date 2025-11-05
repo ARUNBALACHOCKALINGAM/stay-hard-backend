@@ -108,13 +108,6 @@ GET /challenges/:id
   "startDate": "string",
   "expectedEndDate": "string",
   "status": "active" | "completed" | "failed" | "abandoned",
-  "customTasks": [
-    {
-      "id": "string",
-      "text": "string",
-      "order": "number"
-    }
-  ],
   "totalDays": "number",
   "completedDays": "number",
   "currentStreak": "number",

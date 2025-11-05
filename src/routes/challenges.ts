@@ -18,7 +18,7 @@ const validateChallengeDays = (req: Request, res: Response, next: NextFunction) 
 };
 
 const validateChallengeLevel = (req: Request, res: Response, next: NextFunction) => {
-  const { challengeLevel, customTasks } = req.body;
+  const { challengeLevel } = req.body;
   
   if (!challengeLevel || !['Soft', 'Hard', 'Custom'].includes(challengeLevel)) {
     return res.status(400).json({ 
@@ -26,24 +26,6 @@ const validateChallengeLevel = (req: Request, res: Response, next: NextFunction)
     });
   }
 
-  if (challengeLevel === 'Custom') {
-    if (!customTasks || !Array.isArray(customTasks) || customTasks.length === 0) {
-      return res.status(400).json({ 
-        message: 'Custom tasks array required when setting level to Custom' 
-      });
-    }
-
-    // Validate each custom task
-    const invalidTasks = customTasks.filter(
-      task => !task.id || !task.text || typeof task.order !== 'number'
-    );
-
-    if (invalidTasks.length > 0) {
-      return res.status(400).json({ 
-        message: 'Invalid custom tasks. Each task must have id, text, and order' 
-      });
-    }
-  }
   
   next();
 };
@@ -62,7 +44,7 @@ router.post('/start', authenticateUser, challengeController.startDefaultChalleng
  * @desc    Get challenge by ID
  * @access  Private
  */
-router.get('/:id', authenticateUser, validateObjectId, challengeController.getChallenge);
+router.get('/:id', authenticateUser, challengeController.getChallenge);
 
 /**
  * @route   PATCH /api/challenges/:id/days
@@ -70,7 +52,7 @@ router.get('/:id', authenticateUser, validateObjectId, challengeController.getCh
  * @access  Private
  */
 router.patch('/:id/days', 
-  [authenticateUser, validateObjectId, validateChallengeDays],
+  [authenticateUser, validateChallengeDays],
   challengeController.updateDays
 );
 
@@ -80,7 +62,7 @@ router.patch('/:id/days',
  * @access  Private
  */
 router.patch('/:id/difficulty',
-  [authenticateUser, validateObjectId, validateChallengeLevel],
+  [authenticateUser, validateChallengeLevel],
   challengeController.updateDifficulty
 );
 
@@ -90,7 +72,13 @@ router.patch('/:id/difficulty',
  * @access  Private
  */
 router.post('/:id/reset',
-  [authenticateUser, validateObjectId],
+  [authenticateUser],
+  (req, res, next) => {
+    console.log('\n🔵 ROUTE HIT: POST /api/challenges/:id/reset');
+    console.log('🔵 Challenge ID from URL:', req.params.id);
+    console.log('🔵 User from auth middleware:', (req as any).user ? 'Present' : 'Missing');
+    next();
+  },
   challengeController.resetProgress
 );
 

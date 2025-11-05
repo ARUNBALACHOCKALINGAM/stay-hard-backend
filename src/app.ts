@@ -53,10 +53,10 @@ dotenv.config();
 initFirebaseAdmin();
 
 // Import routes
-import userRoutes from './routers/users';
-import challengeRoutes from './routers/challenges';
-import progressRoutes from './routers/progress';
-import galleryRoutes from './routers/gallery';
+import userRoutes from './routes/users';
+import challengeRoutes from './routes/challenges';
+import progressRoutes from './routes/progress';
+import galleryRoutes from './routes/gallery';
 import authRoutes from './routes/auth';
 
 const app = express();

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Challenge, { IChallenge } from '../models/Challenge';
 import User from '../models/Users';
+import DailyProgress from '../models/DailyProgress';
 import { v4 as uuidv4 } from 'uuid';
 import { generateTasksForLevel } from '../utils/defaultTasks';
 
@@ -14,7 +15,7 @@ export const challengeController = {
    */
   getChallenge: async (req: Request, res: Response) => {
     try {
-      const challenge = await Challenge.findById(req.params.id);
+      const challenge = await Challenge.findOne({"challengeId": req.params.id});
       
       if (!challenge) {
         return res.status(404).json({ message: 'Challenge not found' });
@@ -35,6 +36,13 @@ export const challengeController = {
    */
   updateDays: async (req: Request, res: Response) => {
     try {
+      console.log('\n\n========================================');
+      console.log('=== UPDATE DAYS CALLED ===');
+      console.log('========================================');
+      console.log('req.params.id:', req.params.id);
+      console.log('req.body:', req.body);
+      console.log('========================================\n');
+      
       const { challengeDays } = req.body;
       
       // Validate challenge days
@@ -44,7 +52,7 @@ export const challengeController = {
         });
       }
 
-      const challenge = await Challenge.findById(req.params.id);
+      const challenge = await Challenge.findOne({"challengeId": req.params.id});
       
       if (!challenge) {
         return res.status(404).json({ message: 'Challenge not found' });
@@ -57,12 +65,12 @@ export const challengeController = {
         });
       }
 
-      // Calculate new end date based on current start date and new duration
+      // 4. Calculate new end date based on current start date and new duration
       const newEndDate = new Date(challenge.startDate);
       newEndDate.setDate(newEndDate.getDate() + challengeDays);
 
-      const updatedChallenge = await Challenge.findByIdAndUpdate(
-        req.params.id,
+      const updatedChallenge = await Challenge.findOneAndUpdate(
+        {"challengeId":req.params.id},
         {
           $set: {
             challengeDays,
@@ -72,7 +80,10 @@ export const challengeController = {
         { new: true, runValidators: true }
       );
 
-      res.json(updatedChallenge);
+      res.json({
+        message: 'Challenge duration updated',
+        challenge: updatedChallenge
+      });
     } catch (error) {
       res.status(500).json({ 
         message: 'Error updating challenge days',
@@ -87,7 +98,11 @@ export const challengeController = {
    */
   updateDifficulty: async (req: Request, res: Response) => {
     try {
-      const { challengeLevel } = req.body;
+      console.log('=== UPDATE DIFFICULTY CALLED ===');
+      console.log('req.params.id:', req.params.id);
+      console.log('req.body:', req.body);
+      
+      const { challengeLevel, customTasks } = req.body;
       
       // Validate challenge level
       if (!challengeLevel || !['Soft', 'Hard', 'Custom'].includes(challengeLevel)) {
@@ -96,7 +111,7 @@ export const challengeController = {
         });
       }
 
-      const challenge = await Challenge.findById(req.params.id);
+      const challenge = await Challenge.findOne({"challengeId": req.params.id});
       
       if (!challenge) {
         return res.status(404).json({ message: 'Challenge not found' });
@@ -109,27 +124,62 @@ export const challengeController = {
         });
       }
 
-      // If changing to/from Custom, handle customTasks
-      if (challengeLevel === 'Custom' && !req.body.customTasks) {
+      // If changing to/from Custom, validate customTasks
+      if (challengeLevel === 'Custom' && !customTasks) {
         return res.status(400).json({ 
           message: 'customTasks required when setting level to Custom' 
         });
       }
 
+      // 1. Delete all existing progress entries for this challenge
+      console.log(`[updateDifficulty] Attempting to delete progress for challengeId: ${challenge.challengeId}`);
+      const existingDiffProgress = await DailyProgress.find({ challengeId: challenge.challengeId });
+      console.log(`[updateDifficulty] Found ${existingDiffProgress.length} existing progress entries`);
+      
+      const deleteDiffResult = await DailyProgress.deleteMany({ challengeId: challenge.challengeId });
+      console.log(`[updateDifficulty] Deleted ${deleteDiffResult.deletedCount} progress entries`);
+
+      // 2. Generate tasks for the new difficulty level
+      const todayTasks = challengeLevel === 'Custom' && customTasks
+        ? customTasks.map((task: any) => ({
+            id: task.id || uuidv4(),
+            text: task.text,
+            completed: false,
+            completedAt: null
+          }))
+        : generateTasksForLevel(challengeLevel);
+
+      // 3. Create a new progress entry for today with the new tasks
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      await DailyProgress.create({
+        userId: challenge.userId,
+        challengeId: challenge.challengeId,
+        date: today,
+        dayNumber: 1,
+        tasks: todayTasks,
+        completionRate: 0
+      });
+
+      // 4. Update the challenge with new difficulty level
       const updateData: Partial<IChallenge> = {
         challengeLevel,
       };
 
-      // Update custom tasks if provided
-     generateTasksForLevel(challengeLevel) ;
-
-      const updatedChallenge = await Challenge.findByIdAndUpdate(
-        req.params.id,
+      const updatedChallenge = await Challenge.findOneAndUpdate(
+        { "challengeId": req.params.id },
         { $set: updateData },
         { new: true, runValidators: true }
       );
 
-      res.json(updatedChallenge);
+      res.json({
+        message: 'Challenge difficulty updated and progress reset',
+        challenge: updatedChallenge,
+        debug: {
+          deletedCount: deleteDiffResult.deletedCount,
+          foundBeforeDeletion: existingDiffProgress.length,
+          timestamp: new Date().toISOString()
+        }
+      });
     } catch (error) {
       res.status(500).json({ 
         message: 'Error updating challenge difficulty',
@@ -144,7 +194,19 @@ export const challengeController = {
    */
   resetProgress: async (req: Request, res: Response) => {
     try {
-      const challenge = await Challenge.findById(req.params.id);
+      console.log('=== RESET PROGRESS CALLED ===');
+      console.log('req.params.id:', req.params.id);
+      
+      const challenge = await Challenge.findOne({"challengeId": req.params.id});
+      
+      console.log('Challenge found:', challenge ? 'YES' : 'NO');
+      if (challenge) {
+        console.log('Challenge details:', { 
+          _id: challenge._id, 
+          challengeId: challenge.challengeId, 
+          userId: challenge.userId 
+        });
+      }
       
       if (!challenge) {
         return res.status(404).json({ message: 'Challenge not found' });
@@ -157,14 +219,42 @@ export const challengeController = {
         });
       }
 
-      const now = new Date();
-      const newEndDate = new Date(now);
-      newEndDate.setDate(now.getDate() + challenge.challengeDays);
+      // 1. Delete all existing progress entries for this challenge
+      console.log(`Attempting to delete progress for challengeId: ${req.params.id}`);
+      console.log(`Challenge object challengeId: ${challenge.challengeId}`);
+      
+      // Check what exists before deletion
+      const existingProgress = await DailyProgress.find({ challengeId: challenge.challengeId });
+      console.log(`Found ${existingProgress.length} existing progress entries:`, existingProgress.map(p => ({ id: p._id, challengeId: p.challengeId, date: p.date })));
+      
+      const response = await DailyProgress.deleteMany({ challengeId: challenge.challengeId });
+      console.log(`Deleted ${response.deletedCount} progress entries for challenge ${challenge.challengeId}`);
+      // 2. Generate Soft level tasks for the reset
+      const softTasks = generateTasksForLevel('Soft');
 
-      const updatedChallenge = await Challenge.findByIdAndUpdate(
-        req.params.id,
+      // 3. Create a new progress entry for today with Soft tasks
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      await DailyProgress.create({
+        userId: challenge.userId,
+        challengeId: challenge.challengeId,
+        date: today,
+        dayNumber: 1,
+        tasks: softTasks,
+        completionRate: 0
+      });
+
+      // 4. Reset the challenge to Soft level with current date
+      const now = new Date();
+      const challengeDays = 21; // Reset to 21 days (Soft)
+      const newEndDate = new Date(now);
+      newEndDate.setDate(now.getDate() + challengeDays);
+
+      const updatedChallenge = await Challenge.findOneAndUpdate(
+        {"challengeId": req.params.id},
         {
           $set: {
+            challengeDays: challengeDays,
+            challengeLevel: 'Soft',
             startDate: now,
             expectedEndDate: newEndDate,
             status: 'active',
@@ -179,7 +269,15 @@ export const challengeController = {
         { new: true, runValidators: true }
       );
 
-      res.json(updatedChallenge);
+      res.json({
+        message: 'Challenge reset to Soft level with current date',
+        challenge: updatedChallenge,
+        debug: {
+          deletedCount: response.deletedCount,
+          foundBeforeDeletion: existingProgress.length,
+          timestamp: new Date().toISOString()
+        }
+      });
     } catch (error) {
       res.status(500).json({ 
         message: 'Error resetting challenge',
@@ -226,7 +324,7 @@ export const challengeController = {
       } as Partial<IChallenge>);
 
       // Link to user
-      await User.findByIdAndUpdate(userId, { $set: { currentChallengeId: challenge._id } });
+      await User.findByIdAndUpdate(userId, { $set: { currentChallengeId: challenge.challengeId } });
 
       return res.status(201).json({ message: 'Default challenge started', challenge });
     } catch (error) {

@@ -36,7 +36,7 @@ export async function createDefaultChallengeForUser(userId: any) {
   });
 
   // Link to user
-  user.currentChallengeId = challenge._id.toString();
+  user.currentChallengeId = challenge.challengeId;
   await user.save();
 
   return challenge;

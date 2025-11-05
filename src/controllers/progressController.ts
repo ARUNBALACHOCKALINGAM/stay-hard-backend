@@ -2,11 +2,53 @@ import { Request, Response } from 'express';
 import DailyProgress, { ITask } from '../models/DailyProgress';
 import Challenge from '../models/Challenge';
 import { generateTasksForLevel } from '../utils/defaultTasks';
+import { getDayNumber } from '../utils/dateUtils';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Progress Controller - Handles daily task tracking and updates
  */
 export const progressController = {
+  /**
+   * Get all progress entries for a given challenge for the authenticated user
+   * GET /api/progress/challenge/:challengeId
+   */
+  getAllProgressForChallenge: async (req: Request, res: Response) => {
+    try {
+      const { challengeId } = req.params;
+      if (!challengeId) {
+        return res.status(400).json({ message: 'challengeId is required' });
+      }
+
+      // user comes from authenticateUser middleware
+      const authUser: any = (req as any).user;
+      if (!authUser?._id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      // Ensure the challenge belongs to the user (any status)
+      const challenge = await Challenge.findOne({
+        challengeId,
+        userId: authUser._id,
+      });
+
+      if (!challenge) {
+        return res.status(404).json({ message: 'Challenge not found for this user' });
+      }
+
+      const items = await DailyProgress.find({
+        challengeId,
+        userId: authUser._id,
+      }).sort({ date: 1 });
+
+      return res.json({ items, count: items.length });
+    } catch (error) {
+      res.status(500).json({
+        message: 'Error fetching progress for challenge',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  },
   /**
    * Get tasks for a specific date
    * GET /api/progress
@@ -46,16 +88,16 @@ export const progressController = {
         // Calculate day number based on start date
         const challengeDate = new Date(date as string);
         const startDate = new Date(challenge.startDate);
-        const dayNumber = Math.floor(
-          (challengeDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-        ) + 1;
+        const dayNumber = getDayNumber(startDate, challengeDate);
+
+        console.log('Calculated day number:', dayNumber);
 
         // Initialize tasks based on challenge level
         let tasks: ITask[] = [];
         
     
           
-          tasks = generateTasksForLevel(challenge.challengeLevel);
+       tasks = generateTasksForLevel(challenge.challengeLevel);
         
 
         // Create new progress entry
@@ -142,6 +184,156 @@ export const progressController = {
     } catch (error) {
       res.status(500).json({ 
         message: 'Error updating task',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  },
+
+  /**
+   * Add a new task (Custom difficulty only)
+   * POST /api/progress/:progressId/tasks
+   * body: { text: string }
+   */
+  addTask: async (req: Request, res: Response) => {
+    try {
+      const { progressId } = req.params;
+      const { text } = req.body as { text?: string };
+
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        return res.status(400).json({ message: 'text is required' });
+      }
+
+      const progress = await DailyProgress.findById(progressId);
+      if (!progress) {
+        return res.status(404).json({ message: 'Progress entry not found' });
+      }
+
+      const challenge = await Challenge.findOne({
+        challengeId: progress.challengeId,
+        userId: progress.userId,
+        status: 'active'
+      });
+
+      if (!challenge) {
+        return res.status(404).json({ message: 'Active challenge not found' });
+      }
+
+      if (challenge.challengeLevel !== 'Custom') {
+        return res.status(400).json({ message: 'Tasks can only be modified in Custom difficulty' });
+      }
+
+      const newTask: ITask = {
+        id: uuidv4(),
+        text: text.trim(),
+        completed: false,
+        completedAt: undefined,
+      };
+
+      progress.tasks.push(newTask);
+      progress.completionRate = progress.calculateCompletionRate();
+      await progress.save();
+
+      res.status(201).json(progress);
+    } catch (error) {
+      res.status(500).json({
+        message: 'Error adding task',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  },
+
+  /**
+   * Update task text (Custom difficulty only)
+   * PATCH /api/progress/:progressId/tasks/:taskId/text
+   * body: { text: string }
+   */
+  updateTaskText: async (req: Request, res: Response) => {
+    try {
+      const { progressId, taskId } = req.params;
+      const { text } = req.body as { text?: string };
+
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        return res.status(400).json({ message: 'text is required' });
+      }
+
+      const progress = await DailyProgress.findById(progressId);
+      if (!progress) {
+        return res.status(404).json({ message: 'Progress entry not found' });
+      }
+
+      const challenge = await Challenge.findOne({
+        challengeId: progress.challengeId,
+        userId: progress.userId,
+        status: 'active'
+      });
+
+      if (!challenge) {
+        return res.status(404).json({ message: 'Active challenge not found' });
+      }
+
+      if (challenge.challengeLevel !== 'Custom') {
+        return res.status(400).json({ message: 'Tasks can only be modified in Custom difficulty' });
+      }
+
+      const idx = progress.tasks.findIndex(t => t.id === taskId);
+      if (idx === -1) {
+        return res.status(404).json({ message: 'Task not found' });
+      }
+
+      progress.tasks[idx].text = text.trim();
+      // completion stays the same; recalc not strictly needed but safe
+      progress.completionRate = progress.calculateCompletionRate();
+      await progress.save();
+
+      res.json(progress);
+    } catch (error) {
+      res.status(500).json({
+        message: 'Error updating task text',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  },
+
+  /**
+   * Delete a task (Custom difficulty only)
+   * DELETE /api/progress/:progressId/tasks/:taskId
+   */
+  deleteTask: async (req: Request, res: Response) => {
+    try {
+      const { progressId, taskId } = req.params;
+
+      const progress = await DailyProgress.findById(progressId);
+      if (!progress) {
+        return res.status(404).json({ message: 'Progress entry not found' });
+      }
+
+      const challenge = await Challenge.findOne({
+        challengeId: progress.challengeId,
+        userId: progress.userId,
+        status: 'active'
+      });
+
+      if (!challenge) {
+        return res.status(404).json({ message: 'Active challenge not found' });
+      }
+
+      if (challenge.challengeLevel !== 'Custom') {
+        return res.status(400).json({ message: 'Tasks can only be modified in Custom difficulty' });
+      }
+
+      const before = progress.tasks.length;
+      progress.tasks = progress.tasks.filter(t => t.id !== taskId);
+      if (progress.tasks.length === before) {
+        return res.status(404).json({ message: 'Task not found' });
+      }
+
+      progress.completionRate = progress.calculateCompletionRate();
+      await progress.save();
+
+      res.json(progress);
+    } catch (error) {
+      res.status(500).json({
+        message: 'Error deleting task',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
