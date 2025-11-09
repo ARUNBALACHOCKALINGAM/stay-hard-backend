@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import crypto from 'crypto';
+import path from 'path';
 import { uploadGridFS } from '../utils/gridfsUpload';
 
 /**
@@ -26,20 +28,64 @@ export const galleryController = {
           });
         }
 
-        // File was processed by GridFS (through uploadGridFS middleware)
-        // Return the file information
-        res.status(201).json({
-          message: 'Photo uploaded successfully',
-          file: {
-            filename: req.file.filename,
-            id: (req.file as any).id, // GridFS adds this
-            metadata: {
-              userId: req.body.userId,
-              challengeId: req.body.challengeId,
-              date: req.body.date
-            }
-          }
+        // Manually upload to GridFS using the in-memory buffer
+        const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+          bucketName: 'photos',
         });
+
+        // Generate a safe filename
+        const random = crypto.randomBytes(16).toString('hex');
+        const ext = path.extname((req.file as any).originalname || '') || '.jpg';
+        const filename = `${random}${ext}`;
+
+        // Prefer authenticated user id from middleware, fallback to body
+        const authUser = (req as any).user;
+        
+        // Handle local time: store both UTC upload time and user's local timestamp/timezone
+        const uploadedAt = new Date(); // Server UTC time
+        const localTimestamp = req.body.localTimestamp || uploadedAt.toISOString(); // Client can send ISO string with their local time
+        const timezone = req.body.timezone || 'UTC'; // e.g., "America/New_York", "Asia/Kolkata"
+        const timezoneOffset = req.body.timezoneOffset !== undefined 
+          ? parseInt(req.body.timezoneOffset, 10) 
+          : 0; // Minutes offset from UTC (e.g., -300 for EST)
+
+        const metadata = {
+          userId: authUser?._id?.toString() || req.body.userId,
+          challengeId: req.body.challengeId,
+          date: req.body.date, // YYYY-MM-DD in user's local date
+          uploadedAt: uploadedAt.toISOString(), // Server UTC timestamp
+          localTimestamp, // ISO string from client's local time
+          timezone, // IANA timezone identifier
+          timezoneOffset, // Numeric offset in minutes
+        } as Record<string, any>;
+
+        await new Promise<void>((resolve, reject) => {
+          const uploadStream = bucket.openUploadStream(filename, {
+            metadata,
+            contentType: (req.file as any).mimetype || 'image/jpeg',
+          });
+
+          uploadStream.once('finish', () => resolve());
+          uploadStream.once('error', (err) => reject(err));
+
+          // Write buffer and end
+          uploadStream.end((req.file as any).buffer);
+        })
+          .then(async () => {
+            // Retrieve the just-inserted file to get its id (sorted by uploadDate desc)
+            const cursor = bucket.find({ filename }).sort({ uploadDate: -1 }).limit(1);
+            const files = await cursor.toArray();
+            const file = files[0];
+
+            res.status(201).json({
+              message: 'Photo uploaded successfully',
+              file: {
+                filename,
+                id: file?._id,
+                metadata,
+              },
+            });
+          });
       } catch (error) {
         console.error('Error uploading photo:', error);
         res.status(500).json({ 
@@ -149,6 +195,50 @@ export const galleryController = {
       console.error('Error streaming photo:', error);
       res.status(500).json({ 
         message: 'Error streaming photo',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  },
+
+  /**
+   * Delete a specific photo by its ID
+   * DELETE /api/gallery/:id
+   */
+  deletePhoto: async (req: Request, res: Response) => {
+    try {
+      const fileId = new mongoose.Types.ObjectId(req.params.id);
+      const authUser = (req as any).user;
+
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+        bucketName: 'photos'
+      });
+
+      // Check if file exists and verify ownership
+      const files = await bucket.find({ _id: fileId }).toArray();
+      if (!files.length) {
+        return res.status(404).json({ message: 'Photo not found' });
+      }
+
+      const file = files[0];
+      
+      // Verify user owns this photo (optional but recommended for security)
+      if (authUser && file.metadata?.userId && file.metadata.userId !== authUser._id.toString()) {
+        return res.status(403).json({ 
+          message: 'Unauthorized: You can only delete your own photos' 
+        });
+      }
+
+      // Delete the file from GridFS
+      await bucket.delete(fileId);
+
+      res.json({ 
+        message: 'Photo deleted successfully',
+        deletedId: fileId 
+      });
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      res.status(500).json({ 
+        message: 'Error deleting photo',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }

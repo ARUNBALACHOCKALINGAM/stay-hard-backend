@@ -32,4 +32,12 @@ router.get('/', authenticateUser, galleryController.getProgressPhotos);
  */
 router.get('/:id', [authenticateUser, validateObjectId], galleryController.streamPhoto);
 
+/**
+ * @route   DELETE /api/gallery/:id
+ * @desc    Delete a specific photo
+ * @access  Private
+ * @param   id - Photo's GridFS ID
+ */
+router.delete('/:id', [authenticateUser, validateObjectId], galleryController.deletePhoto);
+
 export default router;
