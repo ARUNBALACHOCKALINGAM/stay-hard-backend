@@ -1,23 +1,25 @@
-name: Deploy to GCP
+name: Test GCP Auth
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
+
+    - name: Check secret
+      run: |
+        if [ -z "${{ secrets.GCP_SA_KEY }}" ]; then
+          exit 1
+        fi
 
     - name: Authenticate to GCP
       uses: google-github-actions/auth@v2
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Setup gcloud
-      uses: google-github-actions/setup-gcloud@v2
-
-    - name: Test auth
+    - name: Verify
       run: gcloud auth list
