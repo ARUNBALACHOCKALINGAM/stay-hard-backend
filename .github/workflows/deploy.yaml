@@ -1,4 +1,4 @@
-name: Test GCP Auth
+name: Test GCP Auth2
 
 on:
   push:
