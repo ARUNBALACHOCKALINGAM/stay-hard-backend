@@ -1,4 +1,4 @@
-name: Test GCP Auth2
+name: Release to Production
 
 on:
   push:
