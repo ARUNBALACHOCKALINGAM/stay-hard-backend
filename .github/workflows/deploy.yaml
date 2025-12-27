@@ -1,4 +1,4 @@
-name: Deploy to Cloud Run
+name: Deploy to GCP
 
 on:
   push:
@@ -16,12 +16,8 @@ jobs:
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Set up gcloud
+    - name: Setup gcloud
       uses: google-github-actions/setup-gcloud@v2
 
-    - name: Deploy
-      run: |
-        gcloud run deploy my-app \
-          --source . \
-          --region us-central1 \
-          --allow-unauthenticated
+    - name: Test auth
+      run: gcloud auth list
