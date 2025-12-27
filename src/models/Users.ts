@@ -5,7 +5,9 @@ export interface IUser extends Document {
   email: string;
   name: string;
   photoUrl?: string;
-  firebaseUid: string;  // Firebase User ID
+  firebaseUid?: string | null;  // Firebase User ID (optional for local users)
+  passwordHash?: string | null; // bcrypt password hash for local users
+  provider?: 'google' | 'local';
   currentChallengeId?: string;
   emailVerified: boolean;
   lastLogin?: Date;
@@ -34,9 +36,20 @@ const UserSchema: Schema = new Schema(
     },
     firebaseUid: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       index: true,
+    },
+    passwordHash: {
+      type: String,
+      required: false,
+      default: null,
+    },
+    provider: {
+      type: String,
+      enum: ['google', 'local'],
+      default: 'google',
     },
     currentChallengeId: {
       type: String,

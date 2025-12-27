@@ -167,9 +167,65 @@ export const galleryController = {
   },
 
   /**
-   * Stream a specific photo by its ID
-   * GET /api/gallery/:id
+   * Get progress photos for a specific challenge
+   * GET /api/gallery/challenge/:challengeId
    */
+  getChallengePhotos: async (req: Request, res: Response) => {
+    try {
+      const { challengeId } = req.params;
+
+      // Get authenticated user
+      const authUser: any = (req as any).user;
+      if (!authUser || !authUser._id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const userId = authUser._id.toString();
+
+      // Get GridFS bucket
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+        bucketName: 'photos'
+      });
+
+      // Build metadata query - filter by both userId and challengeId
+      const metadataQuery: any = {
+        'metadata.userId': userId,
+        'metadata.challengeId': challengeId
+      };
+
+      // Find all matching files, sorted by upload date (newest first)
+      const cursor = bucket.find(metadataQuery).sort({ uploadDate: -1 });
+      const files = await cursor.toArray();
+
+      if (!files.length) {
+        return res.status(404).json({ 
+          message: 'No photos found for this challenge' 
+        });
+      }
+
+      // Format the response
+      const photos = files.map(file => ({
+        id: file._id,
+        filename: file.filename,
+        uploadDate: file.uploadDate,
+        metadata: file.metadata,
+        url: `/api/gallery/${file._id}` // Endpoint to stream the file
+      }));
+
+      res.json({
+        message: 'Challenge photos retrieved successfully',
+        challengeId,
+        count: photos.length,
+        photos
+      });
+    } catch (error) {
+      console.error('Error retrieving challenge photos:', error);
+      res.status(500).json({ 
+        message: 'Error retrieving challenge photos',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  },
   streamPhoto: async (req: Request, res: Response) => {
     try {
       const fileId = new mongoose.Types.ObjectId(req.params.id);

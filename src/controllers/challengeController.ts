@@ -301,11 +301,11 @@ export const challengeController = {
 
       const userId = authUser._id;
 
-      // If user already has an active challenge, return it (idempotent)
-      const existing = await Challenge.findOne({ userId, status: 'active' });
-      if (existing) {
-        return res.json({ message: 'Active challenge already exists', challenge: existing });
-      }
+      // Mark any existing active challenges as inactive
+      await Challenge.updateMany(
+        { userId, status: 'active' },
+        { $set: { status: 'inactive' } }
+      );
 
       const now = new Date();
       const challengeDays = 21;
@@ -326,10 +326,155 @@ export const challengeController = {
       // Link to user
       await User.findByIdAndUpdate(userId, { $set: { currentChallengeId: challenge.challengeId } });
 
+      // Create initial DailyProgress for day 1 with Soft tasks
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const softTasks = generateTasksForLevel('Soft');
+        await DailyProgress.create({
+          userId,
+          challengeId: challenge.challengeId,
+          date: today,
+          dayNumber: 1,
+          tasks: softTasks,
+          completionRate: 0,
+        });
+      } catch (err) {
+        console.warn('Failed to create initial DailyProgress for challenge', challenge.challengeId, err);
+      }
+
       return res.status(201).json({ message: 'Default challenge started', challenge });
     } catch (error) {
       return res.status(500).json({
         message: 'Error starting default challenge',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  },
+
+  /**
+   * Create a new challenge with custom parameters
+   * POST /api/challenges/create
+   */
+  createChallenge: async (req: Request, res: Response) => {
+    try {
+      // req.user is attached by authenticateUser middleware
+      const authUser: any = (req as any).user;
+      if (!authUser || !authUser._id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const userId = authUser._id;
+      const { challengeDays, challengeLevel, customTasks } = req.body;
+
+      // Validate challenge days
+      if (!challengeDays || ![21, 45, 60, 75].includes(challengeDays)) {
+        return res.status(400).json({ 
+          message: 'Invalid challenge days. Must be one of: 21, 45, 60, 75' 
+        });
+      }
+
+      // Validate challenge level
+      if (!challengeLevel || !['Soft', 'Hard', 'Custom'].includes(challengeLevel)) {
+        return res.status(400).json({ 
+          message: 'Invalid challenge level. Must be one of: Soft, Hard, Custom' 
+        });
+      }
+
+      // If Custom level, require customTasks
+      if (challengeLevel === 'Custom' && !customTasks) {
+        return res.status(400).json({ 
+          message: 'customTasks required when challengeLevel is Custom' 
+        });
+      }
+
+      // Mark any existing active challenges as inactive
+      await Challenge.updateMany(
+        { userId, status: 'active' },
+        { $set: { status: 'inactive' } }
+      );
+
+      const now = new Date();
+      const expectedEndDate = new Date(now);
+      expectedEndDate.setDate(now.getDate() + challengeDays);
+
+      const challenge = await Challenge.create({
+        userId,
+        challengeId: uuidv4(),
+        challengeDays,
+        challengeLevel,
+        startDate: now,
+        expectedEndDate,
+        status: 'active',
+      } as Partial<IChallenge>);
+
+      // Link to user
+      await User.findByIdAndUpdate(userId, { $set: { currentChallengeId: challenge.challengeId } });
+
+      // Generate tasks based on level
+      let tasks;
+      if (challengeLevel === 'Custom' && customTasks) {
+        tasks = customTasks.map((task: any) => ({
+          id: task.id || uuidv4(),
+          text: task.text,
+          completed: false,
+          completedAt: null
+        }));
+      } else {
+        tasks = generateTasksForLevel(challengeLevel);
+      }
+
+      // Create initial DailyProgress for day 1
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        await DailyProgress.create({
+          userId,
+          challengeId: challenge.challengeId,
+          date: today,
+          dayNumber: 1,
+          tasks,
+          completionRate: 0,
+        });
+      } catch (err) {
+        console.warn('Failed to create initial DailyProgress for challenge', challenge.challengeId, err);
+      }
+
+      return res.status(201).json({ message: 'Challenge created successfully', challenge });
+    } catch (error) {
+      return res.status(500).json({
+        message: 'Error creating challenge',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  },
+
+  /**
+   * Get all inactive challenges for the authenticated user
+   * GET /api/challenges/history
+   */
+  getInactiveChallenges: async (req: Request, res: Response) => {
+    try {
+      // req.user is attached by authenticateUser middleware
+      const authUser: any = (req as any).user;
+      if (!authUser || !authUser._id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const userId = authUser._id;
+
+      // Find all inactive challenges for the user, sorted by start date (newest first)
+      const inactiveChallenges = await Challenge.find({ 
+        userId, 
+        status: 'inactive' 
+      }).sort({ startDate: -1 });
+
+      res.json({
+        message: 'Inactive challenges retrieved successfully',
+        challenges: inactiveChallenges,
+        count: inactiveChallenges.length
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        message: 'Error fetching inactive challenges',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }

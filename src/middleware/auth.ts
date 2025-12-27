@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as admin from 'firebase-admin';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import User from '../models/Users';
 import { createDefaultChallengeForUser } from '../services/challengeService';
 
@@ -30,56 +32,61 @@ export const authenticateUser = async (
     // Extract the token
     const token = authHeader.split('Bearer ')[1];
 
+    // Try Firebase verification first
     try {
-
-      console.log('Verifying token:', token);
-      // Verify the Firebase token
+      console.log('Verifying Firebase token:', token);
       const decodedToken = await admin.auth().verifyIdToken(token);
+      console.log('Decoded Firebase token:', decodedToken);
 
-
-      console.log('Decoded token:', decodedToken);
-      
-      // Find or create user in our database
       let user = await User.findOne({ firebaseUid: decodedToken.uid });
-
-
-      console.log('Found user:', user);
-      
       if (!user) {
-        // Create new user if they don't exist
         user = await User.create({
           firebaseUid: decodedToken.uid,
           email: decodedToken.email,
           name: decodedToken.name || 'Anonymous',
           emailVerified: decodedToken.email_verified || false,
           photoUrl: decodedToken.picture || null,
-          lastLogin: new Date()
+          lastLogin: new Date(),
+          provider: 'google'
         });
 
-        // Auto-create default challenge for new users (idempotent)
         try {
           await createDefaultChallengeForUser(user._id);
-
-          console.log('Default challenge created for user:', user._id);
         } catch (err) {
           console.warn('Failed to create default challenge for user:', err);
         }
       } else {
-        // Update last login
-        await User.findByIdAndUpdate(user._id, {
-          lastLogin: new Date()
-        });
-        console.log('Updated last login for user:', user._id);
+        await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
       }
 
-      // Attach user and token to request object
       req.user = user;
       req.token = token;
-      
-      console.log('✅ Auth successful, proceeding to controller');
-      next();
-    } catch (error) {
-      return res.status(401).json({ message: 'Invalid token' });
+      console.log('✅ Firebase auth successful');
+      return next();
+    } catch (firebaseErr) {
+      // If Firebase verification fails, try JWT verification
+      try {
+        const secret = process.env.JWT_SECRET || 'dev_jwt_secret';
+        console.log('Firebase verify failed, trying JWT verify');
+        const decoded: any = jwt.verify(token, secret);
+        if (!decoded || !decoded.userId) {
+          throw new Error('Invalid JWT payload');
+        }
+
+        const user = await User.findById(decoded.userId);
+        if (!user) return res.status(401).json({ message: 'User not found' });
+
+        // Update last login
+        await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
+
+        req.user = user;
+        req.token = token;
+        console.log('✅ JWT auth successful');
+        return next();
+      } catch (jwtErr) {
+        console.log('Both Firebase and JWT verification failed');
+        return res.status(401).json({ message: 'Invalid token' });
+      }
     }
   } catch (error) {
     return res.status(500).json({ message: 'Internal server error' });

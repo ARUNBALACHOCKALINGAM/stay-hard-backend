@@ -25,6 +25,14 @@ router.post('/upload', authenticateUser, galleryController.uploadProgressPhoto);
 router.get('/', authenticateUser, galleryController.getProgressPhotos);
 
 /**
+ * @route   GET /api/gallery/challenge/:challengeId
+ * @desc    Get progress photos for a specific challenge
+ * @access  Private
+ * @param   challengeId - Challenge ID
+ */
+router.get('/challenge/:challengeId', authenticateUser, galleryController.getChallengePhotos);
+
+/**
  * @route   GET /api/gallery/:id
  * @desc    Stream a specific photo
  * @access  Private

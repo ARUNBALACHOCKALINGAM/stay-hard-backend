@@ -30,6 +30,30 @@ const validateChallengeLevel = (req: Request, res: Response, next: NextFunction)
   next();
 };
 
+const validateCreateChallenge = (req: Request, res: Response, next: NextFunction) => {
+  const { challengeDays, challengeLevel, customTasks } = req.body;
+  
+  if (!challengeDays || ![21, 45, 60, 75].includes(Number(challengeDays))) {
+    return res.status(400).json({ 
+      message: 'Invalid challenge days. Must be one of: 21, 45, 60, 75' 
+    });
+  }
+
+  if (!challengeLevel || !['Soft', 'Hard', 'Custom'].includes(challengeLevel)) {
+    return res.status(400).json({ 
+      message: 'Invalid challenge level. Must be one of: Soft, Hard, Custom' 
+    });
+  }
+
+  if (challengeLevel === 'Custom' && !customTasks) {
+    return res.status(400).json({ 
+      message: 'customTasks required when challengeLevel is Custom' 
+    });
+  }
+  
+  next();
+};
+
 const router = Router();
 
 /**
@@ -38,6 +62,23 @@ const router = Router();
  * @access  Private
  */
 router.post('/start', authenticateUser, challengeController.startDefaultChallenge);
+
+/**
+ * @route   POST /api/challenges/create
+ * @desc    Create a new challenge with custom parameters
+ * @access  Private
+ */
+router.post('/create', 
+  [authenticateUser, validateCreateChallenge],
+  challengeController.createChallenge
+);
+
+/**
+ * @route   GET /api/challenges/history
+ * @desc    Get all inactive challenges for the authenticated user
+ * @access  Private
+ */
+router.get('/history', authenticateUser, challengeController.getInactiveChallenges);
 
 /**
  * @route   GET /api/challenges/:id
