@@ -28,7 +28,7 @@ const initFirebaseAdmin = () => {
       return;
     } catch (err) {
       console.error('Failed to initialize Firebase Admin with env credentials:', err);
-      throw err;
+       return;
     }
   }
 
@@ -40,7 +40,7 @@ const initFirebaseAdmin = () => {
       return;
     } catch (err) {
       console.error('Failed to initialize Firebase Admin with application default credentials:', err);
-      throw err;
+       return;
     }
   }
 
