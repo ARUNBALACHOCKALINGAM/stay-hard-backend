@@ -32,6 +32,7 @@
     "@types/express": "^5.0.5",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.9.2",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9.39.0",
     "globals": "^16.5.0",
     "nodemon": "^3.1.10",
@@ -52,6 +53,6 @@
     "mongoose": "^8.19.2",
     "multer": "^1.4.4",
     "multer-gridfs-storage": "^5.0.2",
-    "uuid": "^9.0.1"
+    "uuid": "^8.3.2"
   }
 }
