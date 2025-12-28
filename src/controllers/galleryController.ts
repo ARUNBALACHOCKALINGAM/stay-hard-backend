@@ -29,7 +29,7 @@ export const galleryController = {
         }
 
         // Manually upload to GridFS using the in-memory buffer
-        const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+        const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db as mongoose.mongo.Db, {
           bucketName: 'photos',
         });
 
@@ -114,7 +114,7 @@ export const galleryController = {
       }
 
       // Get GridFS bucket
-      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db as mongoose.mongo.Db, {
         bucketName: 'photos'
       });
 
@@ -183,7 +183,7 @@ export const galleryController = {
       const userId = authUser._id.toString();
 
       // Get GridFS bucket
-      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db as mongoose.mongo.Db, {
         bucketName: 'photos'
       });
 
@@ -230,7 +230,7 @@ export const galleryController = {
     try {
       const fileId = new mongoose.Types.ObjectId(req.params.id);
       
-      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db as mongoose.mongo.Db, {
         bucketName: 'photos'
       });
 
@@ -265,7 +265,7 @@ export const galleryController = {
       const fileId = new mongoose.Types.ObjectId(req.params.id);
       const authUser = (req as any).user;
 
-      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db as mongoose.mongo.Db, {
         bucketName: 'photos'
       });
 

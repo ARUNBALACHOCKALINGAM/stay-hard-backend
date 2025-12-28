@@ -114,7 +114,7 @@ router.patch('/:id/difficulty',
  */
 router.post('/:id/reset',
   [authenticateUser],
-  (req, res, next) => {
+  (req: any, res :any, next:any) => {
     console.log('\n🔵 ROUTE HIT: POST /api/challenges/:id/reset');
     console.log('🔵 Challenge ID from URL:', req.params.id);
     console.log('🔵 User from auth middleware:', (req as any).user ? 'Present' : 'Missing');
