@@ -14,5 +14,7 @@ COPY . .
 # Cloud Run uses port 8080
 EXPOSE 8080
 
+RUN npm run build
+
 # Start app
 CMD ["npm", "start"]
