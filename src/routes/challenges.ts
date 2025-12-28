@@ -57,6 +57,13 @@ const validateCreateChallenge = (req: Request, res: Response, next: NextFunction
 const router = Router();
 
 /**
+ * @route   GET /api/challenges/current
+ * @desc    Get or auto-create active challenge for authenticated user
+ * @access  Private
+ */
+router.get('/current', authenticateUser, challengeController.getCurrentChallenge);
+
+/**
  * @route   POST /api/challenges/start
  * @desc    Start a default 21-day Soft challenge for the authenticated user
  * @access  Private

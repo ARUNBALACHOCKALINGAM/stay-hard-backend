@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { authenticateUser } from '../middleware/auth';
@@ -6,6 +6,19 @@ import User from '../models/Users';
 import { createDefaultChallengeForUser } from '../services/challengeService';
 
 const router = Router();
+
+const shapeUser = (user: any) => ({
+  id: user._id,
+  email: user.email,
+  name: user.name,
+  photoUrl: user.photoUrl,
+  provider: user.provider,
+});
+
+const sendAuthPayload = (res: Response, user: any, message = 'OK', status = 200) => {
+  const token = signToken(user._id);
+  return res.status(status).json({ message, token, user: shapeUser(user) });
+};
 
 // Helper to sign JWTs
 const signToken = (userId: any) => {
@@ -63,8 +76,7 @@ router.post('/signup', async (req, res) => {
       console.warn('Failed to create default challenge for new local user', err);
     }
 
-    const token = signToken(user._id);
-    res.status(201).json({ message: 'User created', user: { id: user._id, email: user.email, name: user.name }, token });
+    return sendAuthPayload(res, user, 'User created', 201);
   } catch (error) {
     console.error('Signup error', error);
     res.status(500).json({ message: 'Server error' });
@@ -92,8 +104,7 @@ router.post('/signin', async (req, res) => {
     // Update lastLogin
     await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
 
-    const token = signToken(user._id);
-    res.json({ message: 'Signed in', token, user: { id: user._id, email: user.email, name: user.name } });
+    return sendAuthPayload(res, user, 'Signed in');
   } catch (error) {
     console.error('Signin error', error);
     res.status(500).json({ message: 'Server error' });
@@ -126,22 +137,25 @@ router.put('/profile', authenticateUser, async (req, res) => {
 });
 
 /**
- * @route   POST /api/auth/verify
- * @desc    Verify Firebase token and return user data
- * @access  Public
+ * @desc Verify an incoming token (Firebase ID token or backend JWT) and return fresh JWT + user profile
  */
-router.post('/verify', authenticateUser, async (req, res) => {
+const verifyAndRespond = async (req: Request, res: Response) => {
   try {
-    // The authenticateUser middleware already verified the token
-    // and created/updated the user if necessary
     const user = await User.findById(req.user._id).select('-__v');
-    res.json({ 
-      user,
-      message: 'Token verified successfully' 
-    });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    return sendAuthPayload(res, user, 'Token verified successfully');
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
-});
+};
+
+/**
+ * @route   POST /api/auth/verify
+ * @route   GET  /api/auth/verify
+ * @desc    Verify token and issue backend JWT + user
+ * @access  Public (requires Bearer token)
+ */
+router.post('/verify', authenticateUser, verifyAndRespond);
+router.get('/verify', authenticateUser, verifyAndRespond);
 
 export default router;

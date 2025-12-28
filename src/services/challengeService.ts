@@ -5,6 +5,22 @@ import { v4 as uuidv4 } from 'uuid';
 import { generateTasksForLevel } from '../utils/defaultTasks';
 
 /**
+ * Ensures a user has an active challenge. If none exists, creates a default one.
+ * This is idempotent - safe to call multiple times.
+ * @returns The active challenge
+ */
+export async function ensureActiveChallenge(userId: any) {
+  // Check for existing active challenge
+  const existingActive = await Challenge.findOne({ userId, status: 'active' });
+  if (existingActive) {
+    return existingActive;
+  }
+
+  // No active challenge found - create default one
+  return await createDefaultChallengeForUser(userId);
+}
+
+/**
  * Create a default challenge (21 days, Soft) for a user.
  * Marks any existing active challenges as inactive before creating a new one.
  */
@@ -58,4 +74,4 @@ export async function createDefaultChallengeForUser(userId: any) {
   return challenge;
 }
 
-export default { createDefaultChallengeForUser };
+export default { createDefaultChallengeForUser, ensureActiveChallenge };

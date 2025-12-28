@@ -4,11 +4,36 @@ import User from '../models/Users';
 import DailyProgress from '../models/DailyProgress';
 import { v4 as uuidv4 } from 'uuid';
 import { generateTasksForLevel } from '../utils/defaultTasks';
+import { ensureActiveChallenge } from '../services/challengeService';
 
 /**
  * Challenge Controller - Handles challenge-related operations
  */
 export const challengeController = {
+  /**
+   * Get or auto-create active challenge for user
+   * GET /api/challenges/current
+   */
+  getCurrentChallenge: async (req: Request, res: Response) => {
+    try {
+      const authUser: any = (req as any).user;
+      if (!authUser || !authUser._id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const challenge = await ensureActiveChallenge(authUser._id);
+      return res.json({ 
+        message: 'Active challenge retrieved', 
+        challenge 
+      });
+    } catch (error) {
+      return res.status(500).json({
+        message: 'Error retrieving current challenge',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  },
+
   /**
    * Get challenge by ID
    * GET /api/challenges/:id
@@ -301,7 +326,7 @@ export const challengeController = {
 
       const userId = authUser._id;
 
-      // Mark any existing active challenges as inactive
+      // Mark any existing active challenges as inactive (explicit fresh start)
       await Challenge.updateMany(
         { userId, status: 'active' },
         { $set: { status: 'inactive' } }
