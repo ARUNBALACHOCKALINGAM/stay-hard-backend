@@ -71,7 +71,7 @@ mongoose.connect(mongoURI)
   .then(() => console.log('🌿 MongoDB Connected'))
   .catch(err => {
     console.error('MongoDB connection error:', err);
-    process.exit(1);
+    // process.exit(1);
   });
 
 // Enable CORS
@@ -98,9 +98,9 @@ app.use((req: Request, res: Response) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-const PORT = process.env.PORT || 8080;
+const PORT =  Number(process.env.PORT) || 8080;
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`
 🚀 Server running on port ${PORT}
 📑 API Routes:
