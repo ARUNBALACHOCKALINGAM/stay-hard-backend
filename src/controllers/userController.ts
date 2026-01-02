@@ -106,6 +106,71 @@ export const userController = {
     }
   },
 
+   /**
+   * Update email
+   * PUT /api/users/email/:id
+   */
+  updateEmail: async (req: Request, res: Response) => {
+    try {
+      const updates = {
+        email: req.body.email,
+      };
+
+      const isGoogleUser = await User.findById(req.params.id);
+      if (isGoogleUser?.provider === 'google') {
+        return res.status(400).json({ message: 'Cannot update password for Google-authenticated users' });
+      }
+
+      const user = await User.findByIdAndUpdate(
+        req.params.id,
+        { $set: updates },
+        { new: true, runValidators: true }
+      );
+
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: 'Error updating user', error });
+    }
+  },
+  
+  
+  /**
+   * Update password
+   * PUT /api/users/password/:id
+   */
+  updatePassword: async (req: Request, res: Response) => {
+    try {
+      const updates = {
+        password: req.body.password,
+      };
+
+      const isGoogleUser = await User.findById(req.params.id);
+      if (isGoogleUser?.provider === 'google') {
+        return res.status(400).json({ message: 'Cannot update password for Google-authenticated users' });
+      }
+
+
+
+      const user = await User.findByIdAndUpdate(
+        req.params.id,
+        { $set: updates },
+        { new: true, runValidators: true }
+      );
+
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+      res.status(500).json({ message: 'Error deleting user', error });
+    }
+  },
+
+
   /**
    * Delete user
    * DELETE /api/users/:id

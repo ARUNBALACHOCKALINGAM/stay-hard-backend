@@ -38,6 +38,25 @@ router.get('/email/:email', userController.getUserByEmail);
  */
 router.put('/:id', authenticateUser, validateObjectId, validateUserInput, userController.updateUser);
 
+
+/**
+ * @route   PUT /api/users/email/:id
+ * @desc    Update email of user
+ * @access  Private
+ * @param   id - User's MongoDB ID
+ * @body    {  email?: string}
+ */
+router.put('/email/:id', authenticateUser, validateObjectId, userController.updateEmail);
+
+/**
+ * @route   PUT /api/users/password/:id
+ * @desc    Update password of user
+ * @access  Private
+ * @param   id - User's MongoDB ID
+ * @body    {  password?: string}
+ */
+router.put('/password/:id', authenticateUser, validateObjectId, userController.updatePassword);
+
 /**
  * @route   DELETE /api/users/:id
  * @desc    Delete user
