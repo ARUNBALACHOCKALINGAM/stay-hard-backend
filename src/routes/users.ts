@@ -14,6 +14,13 @@ const router = Router();
 router.post('/', validateUserInput, userController.createUser);
 
 /**
+ * @route   GET /api/users/leaderboard
+ * @desc    Get leaderboard (ranks by longest streak, completed challenges, total tasks completed)
+ * @access  Public
+ */
+router.get('/leaderboard', userController.getLeaderboard);
+
+/**
  * @route   GET /api/users/:id
  * @desc    Get user by ID
  * @access  Public
@@ -72,6 +79,16 @@ router.delete('/:id', authenticateUser, validateObjectId, userController.deleteU
  * @param   id - User's MongoDB ID
  */
 router.get('/:id/current-challenge', authenticateUser, validateObjectId, userController.getCurrentChallenge);
+
+/**
+ * @route   GET /api/users/:id/achievements
+ * @desc    Get user achievements (streaks, completed challenges/tasks, member since)
+ * @access  Private
+ * @param   id - User's MongoDB ID
+ */
+router.get('/:id/achievements', authenticateUser, validateObjectId, userController.getAchievements);
+
+
 
 export default router;
 

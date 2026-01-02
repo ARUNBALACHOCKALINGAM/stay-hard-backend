@@ -207,6 +207,89 @@ export const userController = {
       res.status(500).json({ message: 'Error fetching current challenge', error });
     }
   },
+
+    /**
+   * Get user achievements
+   * GET /api/users/:id/achievements
+   */
+  getAchievements: async (req: Request, res: Response) => {
+    try {
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+
+      // Aggregate challenge stats
+      const challenges = await Challenge.find({ userId: user._id });
+      const completedChallenges = challenges.filter(c => c.status === 'completed').length;
+      const longestStreak = Math.max(...challenges.map(c => c.longestStreak || 0), 0);
+      const currentStreak = Math.max(...challenges.map(c => c.currentStreak || 0), 0);
+
+      // Aggregate tasks completed
+      const progressEntries = await import('../models/DailyProgress').then(m => m.default.find({ userId: user._id }));
+      const totalTasksCompleted = progressEntries.reduce((sum, entry) => {
+        return sum + (entry.tasks ? entry.tasks.filter((t: any) => t.completed).length : 0);
+      }, 0);
+
+      const achievements = {
+        longestStreak,
+        currentStreak,
+        totalChallengesCompleted: completedChallenges,
+        totalTasksCompleted,
+        memberSince: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Recently'
+      };
+
+      res.json(achievements);
+    } catch (error) {
+      res.status(500).json({ message: 'Error fetching achievements', error });
+    }
+  },
+    /**
+   * Get leaderboard
+   * GET /api/users/leaderboard
+   * Ranks by: longest streak, then completed challenges, then total tasks completed
+   */
+  getLeaderboard: async (req: Request, res: Response) => {
+    try {
+      // Get all users
+      const users = await User.find({});
+      // For each user, aggregate stats
+      const Challenge = (await import('../models/Challenge')).default;
+      const DailyProgress = (await import('../models/DailyProgress')).default;
+
+      const leaderboard = await Promise.all(users.map(async (user) => {
+        const challenges = await Challenge.find({ userId: user._id });
+        const completedChallenges = challenges.filter(c => c.status === 'completed').length;
+        const longestStreak = Math.max(...challenges.map(c => c.longestStreak || 0), 0);
+        const currentStreak = Math.max(...challenges.map(c => c.currentStreak || 0), 0);
+        const progressEntries = await DailyProgress.find({ userId: user._id });
+        const totalTasksCompleted = progressEntries.reduce((sum, entry) => {
+          return sum + (entry.tasks ? entry.tasks.filter((t: any) => t.completed).length : 0);
+        }, 0);
+        return {
+          user: {
+            _id: user._id,
+            name: user.name,
+            photoUrl: user.photoUrl,
+            provider: user.provider,
+          },
+          longestStreak,
+          currentStreak,
+          completedChallenges,
+          totalTasksCompleted,
+        };
+      }));
+
+      // Sort leaderboard: longestStreak desc, then completedChallenges desc, then totalTasksCompleted desc
+      leaderboard.sort((a, b) => {
+        if (b.longestStreak !== a.longestStreak) return b.longestStreak - a.longestStreak;
+        if (b.completedChallenges !== a.completedChallenges) return b.completedChallenges - a.completedChallenges;
+        return b.totalTasksCompleted - a.totalTasksCompleted;
+      });
+
+      res.json({ leaderboard });
+    } catch (error) {
+      res.status(500).json({ message: 'Error fetching leaderboard', error });
+    }
+  },
 };
 
 // Example usage:

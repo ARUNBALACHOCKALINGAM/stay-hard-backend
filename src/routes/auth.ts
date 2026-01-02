@@ -8,11 +8,17 @@ import { createDefaultChallengeForUser } from '../services/challengeService';
 const router = Router();
 
 const shapeUser = (user: any) => ({
-  id: user._id,
-  email: user.email,
+  _id: user._id,
   name: user.name,
+  email: user.email,
   photoUrl: user.photoUrl,
+  firebaseUid: user.firebaseUid,
+  currentChallengeId: user.currentChallengeId,
+  emailVerified: user.emailVerified,
   provider: user.provider,
+  lastLogin: user.lastLogin,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
 });
 
 const sendAuthPayload = (res: Response, user: any, message = 'OK', status = 200) => {

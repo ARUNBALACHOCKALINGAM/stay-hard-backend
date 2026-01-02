@@ -22,14 +22,19 @@ export async function ensureDailyProgressUpToToday(userId: any, challengeId: str
   const daysElapsed = getDayNumber(startDate, today);
   const tasksTemplate = generateTasksForLevel(challenge.challengeLevel);
 
+  let currentStreak = 0;
+  let longestStreak = 0;
+  let completedDays = 0;
+  let totalCompletionRate = 0;
+
   for (let day = 1; day <= daysElapsed && day <= challenge.challengeDays; day++) {
     const date = new Date(startDate);
     date.setDate(startDate.getDate() + (day - 1));
     const dateStr = date.toISOString().split('T')[0];
 
-    const exists = await DailyProgress.findOne({ userId, challengeId, date: dateStr });
-    if (!exists) {
-      await DailyProgress.create({
+    let progress = await DailyProgress.findOne({ userId, challengeId, date: dateStr });
+    if (!progress) {
+      progress = await DailyProgress.create({
         userId,
         challengeId,
         date: dateStr,
@@ -38,7 +43,26 @@ export async function ensureDailyProgressUpToToday(userId: any, challengeId: str
         completionRate: 0,
       });
     }
+
+    // Update streaks and completion stats
+    if (progress.completionRate === 1) {
+      completedDays++;
+      currentStreak++;
+      if (currentStreak > longestStreak) longestStreak = currentStreak;
+    } else {
+      // If previous day is not complete, reset current streak
+      currentStreak = 0;
+    }
+    totalCompletionRate += progress.completionRate;
   }
+
+  // Update challenge fields
+  challenge.completedDays = completedDays;
+  challenge.currentStreak = currentStreak;
+  challenge.longestStreak = longestStreak;
+  challenge.avgCompletionRate = daysElapsed > 0 ? totalCompletionRate / daysElapsed : 0;
+  challenge.totalDays = daysElapsed;
+  await challenge.save();
 }
 
 /**
