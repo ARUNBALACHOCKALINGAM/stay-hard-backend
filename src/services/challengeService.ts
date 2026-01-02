@@ -4,6 +4,43 @@ import DailyProgress from '../models/DailyProgress';
 import { v4 as uuidv4 } from 'uuid';
 import { generateTasksForLevel } from '../utils/defaultTasks';
 
+import { getDayNumber } from '../utils/dateUtils';
+
+/**
+ * Ensures all DailyProgress entries exist for each day from challenge start to today.
+ * Creates missing entries with correct dayNumber and tasks.
+ */
+export async function ensureDailyProgressUpToToday(userId: any, challengeId: string) {
+  const challenge = await Challenge.findOne({ userId, challengeId });
+  if (!challenge) throw new Error('Challenge not found');
+
+  const startDate = new Date(challenge.startDate);
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  startDate.setUTCHours(0, 0, 0, 0);
+
+  const daysElapsed = getDayNumber(startDate, today);
+  const tasksTemplate = generateTasksForLevel(challenge.challengeLevel);
+
+  for (let day = 1; day <= daysElapsed && day <= challenge.challengeDays; day++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + (day - 1));
+    const dateStr = date.toISOString().split('T')[0];
+
+    const exists = await DailyProgress.findOne({ userId, challengeId, date: dateStr });
+    if (!exists) {
+      await DailyProgress.create({
+        userId,
+        challengeId,
+        date: dateStr,
+        dayNumber: day,
+        tasks: tasksTemplate.map(task => ({ ...task, completed: false, completedAt: null })),
+        completionRate: 0,
+      });
+    }
+  }
+}
+
 /**
  * Ensures a user has an active challenge. If none exists, creates a default one.
  * This is idempotent - safe to call multiple times.
@@ -74,4 +111,4 @@ export async function createDefaultChallengeForUser(userId: any) {
   return challenge;
 }
 
-export default { createDefaultChallengeForUser, ensureActiveChallenge };
+export default { createDefaultChallengeForUser, ensureActiveChallenge, ensureDailyProgressUpToToday };

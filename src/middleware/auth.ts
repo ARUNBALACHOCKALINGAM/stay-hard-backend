@@ -30,8 +30,7 @@ export const authenticateUser = async (
     }
 
     // Extract the token
-    const token = authHeader.split('Bearer ')[1];
-
+    const token = authHeader.replace(/^Bearer\s+/i, '');
     // Try Firebase verification first
     try {
       console.log('Verifying Firebase token:', token);

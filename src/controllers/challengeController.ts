@@ -4,7 +4,7 @@ import User from '../models/Users';
 import DailyProgress from '../models/DailyProgress';
 import { v4 as uuidv4 } from 'uuid';
 import { generateTasksForLevel } from '../utils/defaultTasks';
-import { ensureActiveChallenge } from '../services/challengeService';
+import { ensureActiveChallenge, ensureDailyProgressUpToToday } from '../services/challengeService';
 
 /**
  * Challenge Controller - Handles challenge-related operations
@@ -22,6 +22,8 @@ export const challengeController = {
       }
 
       const challenge = await ensureActiveChallenge(authUser._id);
+      // Ensure all DailyProgress entries up to today exist
+      await ensureDailyProgressUpToToday(authUser._id, challenge.challengeId);
       return res.json({ 
         message: 'Active challenge retrieved', 
         challenge 
