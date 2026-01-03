@@ -26,6 +26,7 @@ export async function ensureDailyProgressUpToToday(userId: any, challengeId: str
   let longestStreak = 0;
   let completedDays = 0;
   let totalCompletionRate = 0;
+  let streakBuffer = 0;
 
   for (let day = 1; day <= daysElapsed && day <= challenge.challengeDays; day++) {
     const date = new Date(startDate);
@@ -44,21 +45,40 @@ export async function ensureDailyProgressUpToToday(userId: any, challengeId: str
       });
     }
 
-    // Update streaks and completion stats
+    // For streak calculation, skip today unless today is complete
+    const isToday = (day === daysElapsed);
     if (progress.completionRate === 1) {
       completedDays++;
-      currentStreak++;
-      if (currentStreak > longestStreak) longestStreak = currentStreak;
+      streakBuffer++;
+      if (streakBuffer > longestStreak) longestStreak = streakBuffer;
     } else {
-      // If previous day is not complete, reset current streak
-      currentStreak = 0;
+      // Only reset streak if not today, or if today is incomplete
+      if (!isToday || (isToday && progress.completionRate < 1)) {
+        streakBuffer = 0;
+      }
     }
     totalCompletionRate += progress.completionRate;
   }
 
-  // Update challenge fields
+  // currentStreak is streakBuffer only if today is complete, else it's the streak up to yesterday
+  let currentStreakFinal = streakBuffer;
+  const todayProgress = await DailyProgress.findOne({ userId, challengeId, dayNumber: daysElapsed });
+  if (todayProgress && todayProgress.completionRate < 1) {
+    // If today is not complete, current streak is up to yesterday
+    // Find the last streak before today
+    currentStreakFinal = 0;
+    for (let day = daysElapsed - 1; day >= 1; day--) {
+      const prev = await DailyProgress.findOne({ userId, challengeId, dayNumber: day });
+      if (prev && prev.completionRate === 1) {
+        currentStreakFinal++;
+      } else {
+        break;
+      }
+    }
+  }
+
   challenge.completedDays = completedDays;
-  challenge.currentStreak = currentStreak;
+  challenge.currentStreak = currentStreakFinal;
   challenge.longestStreak = longestStreak;
   challenge.avgCompletionRate = daysElapsed > 0 ? totalCompletionRate / daysElapsed : 0;
   challenge.totalDays = daysElapsed;

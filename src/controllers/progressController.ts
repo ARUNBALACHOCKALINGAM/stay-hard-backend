@@ -36,6 +36,10 @@ export const progressController = {
         return res.status(404).json({ message: 'Challenge not found for this user' });
       }
 
+      // Update streaks before returning progress
+      const { ensureDailyProgressUpToToday } = require('../services/challengeService');
+      await ensureDailyProgressUpToToday(authUser._id, challengeId);
+
       const items = await DailyProgress.find({
         challengeId,
         userId: authUser._id,

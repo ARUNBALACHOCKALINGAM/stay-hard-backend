@@ -42,12 +42,18 @@ export const challengeController = {
    */
   getChallenge: async (req: Request, res: Response) => {
     try {
+      console.log('=== GET CHALLENGE CALLED ===');
       const challenge = await Challenge.findOne({"challengeId": req.params.id});
-      
       if (!challenge) {
         return res.status(404).json({ message: 'Challenge not found' });
       }
-
+      // Debug: log streaks
+      console.log('Challenge streaks:', {
+        challengeId: challenge.challengeId,
+        userId: challenge.userId,
+        currentStreak: challenge.currentStreak,
+        longestStreak: challenge.longestStreak
+      });
       res.json(challenge);
     } catch (error) {
       res.status(500).json({ 
